@@ -1,5 +1,5 @@
-from vk_api.longpoll import VkLongPoll, VkEventType
-import vk_api
+# from vk_api.longpoll import VkLongPoll, VkEventType
+import vk_api.longpoll
 import vk
 import time
 from pathlib import Path
@@ -15,7 +15,7 @@ vk_session = vk_api.VkApi(token=token)
 vk_session1 = vk_api.VkApi('79611019237', 'fdf42fdf42')
 vk_session1.auth()
 
-longpoll = VkLongPoll(vk_session)
+longpoll = vk_api.longpoll.VkLongPoll(vk_session)
 flag = 0
 seminar = 0
 task = 0
@@ -130,13 +130,23 @@ def analize_request(event, seminar, task, all_tasks):
                                                     'random_id': 0})
         print(event.attachments)
 
+def ask_help(event):
+    vk_session.method("message.send", {"user_id": event.user_id,
+        "message": "Чтобы получить решение задачи введите Семинар _ задача _ или просто две цифры, соответствующие номеру семинара и задачи.\n"
+        + "Чтобы добавить свое решение, нужно отправить сообщение с номером семинара и задача и прикрепить к нему фото с решением\n"
+        + "Чтобы увидеть подсказку еще раз, напишите помощь",
+"random_id": 0})
+
+seminar = "first"
 
 while True:
     for event in longpoll.listen():
-        if event.type == VkEventType.MESSAGE_NEW:
+        if event.type == vk_api.longpoll.VkEventType.MESSAGE_NEW:
             # remember_users(event.user_id)
             if not event.from_me:
-                seminar, task = analize_message(event, all_tasks)
-                analize_request(event, seminar, task, all_tasks)
-                print("seminar = " + str(seminar))
-                print("task = " + str(task))
+                if event.text == "помощь" or seminar == 'first':
+                    ask_help(event)
+                    seminar = 0
+                else:
+                    seminar, task = analize_message(event, all_tasks)
+                    analize_request(event, seminar, task, all_tasks)

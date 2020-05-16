@@ -20,8 +20,6 @@ flag = 0
 seminar = 0
 task = 0
 
-# lol = json()
-
 with open("all_tasks.json") as f:
     all_tasks = json.load(f)
 

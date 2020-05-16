@@ -1,9 +1,9 @@
-# from vk_api.longpoll import VkLongPoll, VkEventType
+#! /usr/bin/python3
+# -*- coding: utf-8 -*-
+
 import vk_api.longpoll
 import vk
 import time
-from pathlib import Path
-import requests
 import json
 
 
@@ -12,13 +12,7 @@ token = "374eeed4f9510e8e6c2e5fbfbaab5f93c8068af27a245c2f729583018f34d608e7d740e
 
 
 vk_session = vk_api.VkApi(token=token)
-vk_session1 = vk_api.VkApi('79611019237', 'fdf42fdf42')
-vk_session1.auth()
-
 longpoll = vk_api.longpoll.VkLongPoll(vk_session)
-flag = 0
-seminar = 0
-task = 0
 
 with open("all_tasks.json") as f:
     all_tasks = json.load(f)
@@ -27,7 +21,7 @@ def write_in_file(data, filename):
     with open(filename, 'w') as file:
         json.dump(data, file, indent=2)
 
-affirmative = ["да", "верно", "правильно", "ес", "yes", "lf"]
+affirmative = ["да", "Да", "yes", "lf"]
 
 def analize_message(event, all_tasks):
     if len(event.text.split()) == 4 or len(event.text.split()) == 2:
@@ -131,11 +125,12 @@ def analize_request(event, seminar, task, all_tasks):
         print(event.attachments)
 
 def ask_help(event):
-    vk_session.method("message.send", {"user_id": event.user_id,
-        "message": "Чтобы получить решение задачи введите Семинар _ задача _ или просто две цифры, соответствующие номеру семинара и задачи.\n"
-        + "Чтобы добавить свое решение, нужно отправить сообщение с номером семинара и задача и прикрепить к нему фото с решением\n"
-        + "Чтобы увидеть подсказку еще раз, напишите помощь",
-"random_id": 0})
+    vk_session.method("messages.send", {"user_id": event.user_id,
+        "message": "Чтобы получить решение задачи введите\nСеминар _ задача _\nили просто две цифры, соответствующие номеру семинара и задачи.\n\n"
+        + "Чтобы добавить свое решение, отправьте сообщение с номером семинара и задачи и прикрепите к нему фото с решением\n\n"
+        + "Чтобы увидеть подсказку еще раз, напишите 'помощь'\n"
+        + "По другим вопросам пишите @saturnnm (Мне)",
+        "random_id": 0})
 
 seminar = "first"
 

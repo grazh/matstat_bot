@@ -165,7 +165,7 @@ def main(all_tasks, seminar):
                         elif len(event.text.split()) == 2 or len(event.text.split()) == 4:
                             seminar, task = analize_message(event, all_tasks)
                             analize_request(event, seminar, task, all_tasks)
-    except ZeroDivisionError:
+    except:
         print("Error occured.")
         main(all_tasks, 0)
 

@@ -5,14 +5,22 @@ import vk_api.longpoll
 import vk
 import time
 import json
+import requests
+import wget
+import os
 
 token = "374eeed4f9510e8e6c2e5fbfbaab5f93c8068af27a245c2f729583018f34d608e7d740e2d349cf2d28997"
 
+
 vk_session = vk_api.VkApi(token=token)
+vk_session1 = vk_api.VkApi("79611019237", "fdf42fdf42")
+vk_session1.auth()
 longpoll = vk_api.longpoll.VkLongPoll(vk_session)
 
 with open("all_tasks.json") as f:
     all_tasks = json.load(f)
+    print(type(all_tasks))
+    print(type(all_tasks["6"]))
 
 def write_in_file(data, filename):
     with open(filename, 'w') as file:
@@ -85,17 +93,37 @@ def analize_request(event, seminar, task, all_tasks):
         return 0
     else:
         if "attach1" in event.attachments.keys():
-            all_tasks[seminar][task] = vk_session.method("messages.getHistoryAttachments", {'peer_id': event.user_id,
+            # all_tasks[seminar][task] =
+            photo_url = vk_session.method("messages.getHistoryAttachments", {'peer_id': event.user_id,
                                                     "media_type": "photo"})['items'][0]['attachment']['photo']['sizes'][-1]['url']
+            local_image_filename = wget.download(photo_url)
+            r = vk_session1.method("photos.getUploadServer", {'album_id': 272202001,
+                                                        'group_id': 195223878,
+                                                        'v': 5.103})
+            url = r['upload_url']
+            with open(local_image_filename, "rb") as f:
+                file = {"file1": f}
+                ur = requests.post(url, files=file).json()
+            photo = vk_session1.method("photos.save", {'album_id': 272202001,
+                                                                        'group_id': 195223878,
+                                                                       'server': ur['server'],
+                                                                       'photos_list': ur['photos_list'],
+                                                                       'hash': ur['hash']})
+            print(photo)
+            string = "photo" + str(photo[0]['owner_id']) + "_" + str(photo[0]['id'])
+            all_tasks[seminar][task] = string
             write_in_file(all_tasks, "all_tasks.json")
             vk_session.method("messages.send", {'user_id': event.user_id,
                                                 'message': "Спасибо, что добавили решение задачи " + str(task) + " из семинара " + str(seminar) + "!",
                                                 'random_id': 0})
+            os.remove(local_image_filename)
         else:
-            if task in all_tasks[seminar].keys() and ".com" in all_tasks[seminar][task]:
+            if task in all_tasks[seminar].keys() and "photo" in all_tasks[seminar][task]:
+                print(all_tasks[seminar][task])
                 vk_session.method("messages.send", {'user_id': event.user_id,
-                                                    'message': "Решение задачи находится по ссылке\n" + all_tasks[seminar][task],
-                                                    'random_id': 0})
+                                                    'message': "Решение задачи " + task + " из семинара " + seminar + ":",
+                                                    'random_id': 0,
+                                                    'attachment': [all_tasks[seminar][task]]})
             else:
                 vk_session.method("messages.send", {'user_id': event.user_id,
                                                     'message': "Решение задачи еще не выложили",
@@ -111,8 +139,9 @@ def ask_help(event):
 
 def delete_image(text, all_tasks):
     words = text.split()
-    del all_tasks[words[1]][words[2]]
-    write_in_file(all_tasks, "all_tasks.json")
+    if words[2] in all_tasks[words[1]].keys():
+        del all_tasks[words[1]][words[2]]
+        write_in_file(all_tasks, "all_tasks.json")
 
 def main(all_tasks, seminar):
     x = 1
@@ -136,7 +165,7 @@ def main(all_tasks, seminar):
                         elif len(event.text.split()) == 2 or len(event.text.split()) == 4:
                             seminar, task = analize_message(event, all_tasks)
                             analize_request(event, seminar, task, all_tasks)
-    except:
+    except ZeroDivisionError:
         print("Error occured.")
         main(all_tasks, 0)
 

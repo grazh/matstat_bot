@@ -6,10 +6,7 @@ import vk
 import time
 import json
 
-
 token = "374eeed4f9510e8e6c2e5fbfbaab5f93c8068af27a245c2f729583018f34d608e7d740e2d349cf2d28997"
-
-
 
 vk_session = vk_api.VkApi(token=token)
 longpoll = vk_api.longpoll.VkLongPoll(vk_session)
@@ -21,7 +18,7 @@ def write_in_file(data, filename):
     with open(filename, 'w') as file:
         json.dump(data, file, indent=2)
 
-affirmative = ["да", "Да", "yes", "lf"]
+affirmative = ["да", "Да", "lf"]
 
 def analize_message(event, all_tasks):
     if len(event.text.split()) == 4 or len(event.text.split()) == 2:
@@ -73,32 +70,13 @@ def analize_message(event, all_tasks):
                                                 'random_id': 0})
     return (0, 0)
 
-def get_photo(seminar, task, all_tasks):
-    try:
-        if '.com' in all_tasks[seminar][task]:
-            print("Here")
-            print(seminar)
-            print(task)
-            vk_session.method("messages.send", {'user_id': event.user_id,
-                                                'message': "Решение задания находится по ссылке:\n" + all_tasks[seminar][task],
-                                                'random_id': 0})
-            return 1
-    except:
-        vk_session.method("messages.send", {'user_id': event.user_id,
-                                            'message': "Задачу " + str(task) + " из семинара " + str(seminar) + " еще никто не выложил",
-                                            'random_id': 0})
-        time.sleep(0.7)
-        vk_session.method("messages.send", {'user_id': event.user_id,
-                                            'message': "Желаете ли вы добавить ее?",
-                                            'random_id': 0})
-        return 0
-
-
 def remember_users(user_id):
     try:
         open("user_id", "r")
-        if user_id not in open("user_id", "r").read():
-            write_in_file(user_id, "user_id")
+        if user_id not in open("user_id", "r").read().split():
+            write_in_file(user_id.append("\n"), "user_id")
+            return 0
+        return 1
     except:
         write_in_file(user_id, "user_id")
 
@@ -122,7 +100,6 @@ def analize_request(event, seminar, task, all_tasks):
                 vk_session.method("messages.send", {'user_id': event.user_id,
                                                     'message': "Решение задачи еще не выложили",
                                                     'random_id': 0})
-        print(event.attachments)
 
 def ask_help(event):
     vk_session.method("messages.send", {"user_id": event.user_id,
@@ -132,16 +109,36 @@ def ask_help(event):
         + "По другим вопросам пишите @saturnnm (Мне)",
         "random_id": 0})
 
-seminar = "first"
+def delete_image(text, all_tasks):
+    words = text.split()
+    del all_tasks[words[1]][words[2]]
+    write_in_file(all_tasks, "all_tasks.json")
 
-while True:
-    for event in longpoll.listen():
-        if event.type == vk_api.longpoll.VkEventType.MESSAGE_NEW:
-            # remember_users(event.user_id)
-            if not event.from_me:
-                if event.text == "помощь" or seminar == 'first':
-                    ask_help(event)
-                    seminar = 0
-                else:
-                    seminar, task = analize_message(event, all_tasks)
-                    analize_request(event, seminar, task, all_tasks)
+def main(all_tasks, seminar):
+    x = 1
+    try:
+        while x == 1:
+            for event in longpoll.listen():
+                if event.type == vk_api.longpoll.VkEventType.MESSAGE_NEW:
+                    if not event.from_me:
+                        if event.text == "помощь" or seminar == 'first':
+                            if remember_users(event.user_id) == 0:
+                                vk_session.method("messages.send", {"user_id": event.user_id,
+                                                                    "message": "Приветствую тебя!",
+                                                                    "random_id": 0})
+                            ask_help(event)
+                            seminar = 0
+                        elif event.text == "stop23012001":
+                            x = 0
+                            break
+                        elif "delete23012001" in event.text:
+                            delete_image(event.text, all_tasks)
+                        elif len(event.text.split()) == 2 or len(event.text.split()) == 4:
+                            seminar, task = analize_message(event, all_tasks)
+                            analize_request(event, seminar, task, all_tasks)
+    except:
+        print("Error occured")
+        main(all_tasks, 0)
+
+if __name__ == "__main__":
+    main(all_tasks, "first")

@@ -7,20 +7,19 @@ import time
 import json
 import requests
 import wget
+import datetime
 import os
 
+def pause():
+    return 0.5
 token = "374eeed4f9510e8e6c2e5fbfbaab5f93c8068af27a245c2f729583018f34d608e7d740e2d349cf2d28997"
 
 
 vk_session = vk_api.VkApi(token=token)
-vk_session1 = vk_api.VkApi("79611019237", "fdf42fdf42")
-vk_session1.auth()
 longpoll = vk_api.longpoll.VkLongPoll(vk_session)
 
 with open("all_tasks.json") as f:
     all_tasks = json.load(f)
-    print(type(all_tasks))
-    print(type(all_tasks["6"]))
 
 def write_in_file(data, filename):
     with open(filename, 'w') as file:
@@ -28,10 +27,16 @@ def write_in_file(data, filename):
 
 affirmative = ["да", "Да", "lf"]
 
+def mark_as_read(event):
+    time.sleep(0.7)
+    vk_session.method("messages.markAsRead", {"peer_id": event.user_id , "v": 5.103})
+    time.sleep(0.7)
+
 def analize_message(event, all_tasks):
     if len(event.text.split()) == 4 or len(event.text.split()) == 2:
         words = event.text.split()
     else:
+        mark_as_read(event)
         vk_session.method("messages.send", {'user_id': event.user_id,
                                             'message': "Запрос не соответствует формату.\nВведите Семинар _ задача _ или просто 2 цифры",
                                             'random_id': 0})
@@ -41,11 +46,13 @@ def analize_message(event, all_tasks):
             int(words[1])
             int(words[3])
             if int(words[1]) > 10 or int(words[1]) < 1:
+                mark_as_read(event)
                 vk_session.method("messages.send", {'user_id': event.user_id,
                                                     'message': "Cеминара " + str(words[1]) + " пока нет",
                                                     'random_id': 0})
                 return (0, 0)
             if int(words[3]) > all_tasks['length'][words[1]] or int(words[3]) < 1:
+                mark_as_read(event)
                 vk_session.method("messages.send", {'user_id': event.user_id,
                                                 'message': "В семинаре " + str(words[1]) +
                                                            " нет задачи с номером " + str(words[3]) + "!",
@@ -53,6 +60,7 @@ def analize_message(event, all_tasks):
                 return (0, 0)
             return (words[1], words[3])
         except:
+            mark_as_read(event)
             vk_session.method("messages.send", {'user_id': event.user_id,
                                                 'message': "Введите числовое значение семинара и задачи по формату\nСеминар _ задача _ или просто 2 цифры",
                                                 'random_id': 0})
@@ -61,11 +69,13 @@ def analize_message(event, all_tasks):
             int(words[0])
             int(words[1])
             if int(words[0]) > 10 or int(words[0]) < 1:
+                mark_as_read(event)
                 vk_session.method("messages.send", {'user_id': event.user_id,
                                                     'message': "Cеминара " + str(words[0]) + " пока нет",
                                                     'random_id': 0})
                 return (0, 0)
             if int(words[1]) > all_tasks['length'][words[0]] or int(words[1]) < 1:
+                mark_as_read(event)
                 vk_session.method("messages.send", {'user_id': event.user_id,
                                                 'message': "В семинаре " + str(words[0]) +
                                                            " нет задачи с номером " + str(words[1]) + "!",
@@ -73,6 +83,7 @@ def analize_message(event, all_tasks):
                 return (0, 0)
             return (words[0], words[1])
         except:
+            mark_as_read(event)
             vk_session.method("messages.send", {'user_id': event.user_id,
                                                 'message': "Введите числовое значение семинара и задачи по формату\nСеминар _ задача _ или просто 2 цифры",
                                                 'random_id': 0})
@@ -92,44 +103,35 @@ def analize_request(event, seminar, task, all_tasks):
     if seminar == 0:
         return 0
     else:
+        print(event.attachments.keys())
+        if 'attach1' in event.attachments.keys():
+            print(event.attachments['attach1'])
         if "attach1" in event.attachments.keys():
-            # all_tasks[seminar][task] =
-            photo_url = vk_session.method("messages.getHistoryAttachments", {'peer_id': event.user_id,
-                                                    "media_type": "photo"})['items'][0]['attachment']['photo']['sizes'][-1]['url']
-            local_image_filename = wget.download(photo_url)
-            r = vk_session1.method("photos.getUploadServer", {'album_id': 272202001,
-                                                        'group_id': 195223878,
-                                                        'v': 5.103})
-            url = r['upload_url']
-            with open(local_image_filename, "rb") as f:
-                file = {"file1": f}
-                ur = requests.post(url, files=file).json()
-            photo = vk_session1.method("photos.save", {'album_id': 272202001,
-                                                                        'group_id': 195223878,
-                                                                       'server': ur['server'],
-                                                                       'photos_list': ur['photos_list'],
-                                                                       'hash': ur['hash']})
-            print(photo)
-            string = "photo" + str(photo[0]['owner_id']) + "_" + str(photo[0]['id'])
+            r = vk_session.method("messages.getById", {"message_ids": event.message_id})
+            access_key = r['items'][0]['attachments'][0]['photo']['access_key']
+            string = "photo" + str(event.attachments["attach1"]) + "_" + str(access_key)
             all_tasks[seminar][task] = string
             write_in_file(all_tasks, "all_tasks.json")
+            mark_as_read(event)
             vk_session.method("messages.send", {'user_id': event.user_id,
                                                 'message': "Спасибо, что добавили решение задачи " + str(task) + " из семинара " + str(seminar) + "!",
                                                 'random_id': 0})
-            os.remove(local_image_filename)
         else:
             if task in all_tasks[seminar].keys() and "photo" in all_tasks[seminar][task]:
-                print(all_tasks[seminar][task])
+                mark_as_read(event)
                 vk_session.method("messages.send", {'user_id': event.user_id,
                                                     'message': "Решение задачи " + task + " из семинара " + seminar + ":",
                                                     'random_id': 0,
                                                     'attachment': [all_tasks[seminar][task]]})
             else:
+                mark_as_read(event)
                 vk_session.method("messages.send", {'user_id': event.user_id,
                                                     'message': "Решение задачи еще не выложили",
                                                     'random_id': 0})
+            return 0
 
 def ask_help(event):
+    mark_as_read(event)
     vk_session.method("messages.send", {"user_id": event.user_id,
         "message": "Чтобы получить решение задачи введите\nСеминар _ задача _\nили просто две цифры, соответствующие номеру семинара и задачи.\n\n"
         + "Чтобы добавить свое решение, отправьте сообщение с номером семинара и задачи и прикрепите к нему фото с решением\n\n"
@@ -143,8 +145,19 @@ def delete_image(text, all_tasks):
         del all_tasks[words[1]][words[2]]
         write_in_file(all_tasks, "all_tasks.json")
 
+def print_all_tasks(all_tasks, event):
+    string = ""
+    for seminar in all_tasks.keys():
+        if seminar != "length":
+            string += str(seminar) + ": "
+            for task in all_tasks[seminar].keys():
+                string += str(task) + ", "
+            string += "\n"
+    vk_session.method("messages.send", {"user_id": event.user_id, "message": string, "random_id": 0})
+
 def main(all_tasks, seminar):
     x = 1
+    previous_url = 0
     try:
         while x == 1:
             for event in longpoll.listen():
@@ -152,6 +165,7 @@ def main(all_tasks, seminar):
                     if not event.from_me:
                         if event.text == "помощь" or seminar == 'first':
                             if remember_users(event.user_id) == 0:
+                                mark_as_read(event)
                                 vk_session.method("messages.send", {"user_id": event.user_id,
                                                                     "message": "Приветствую тебя!",
                                                                     "random_id": 0})
@@ -162,6 +176,8 @@ def main(all_tasks, seminar):
                             break
                         elif "delete23012001" in event.text:
                             delete_image(event.text, all_tasks)
+                        elif event.text == "Все" or event.text == "все":
+                            print_all_tasks(all_tasks, event)
                         elif len(event.text.split()) == 2 or len(event.text.split()) == 4:
                             seminar, task = analize_message(event, all_tasks)
                             analize_request(event, seminar, task, all_tasks)

@@ -137,7 +137,7 @@ def main(all_tasks, seminar):
                             seminar, task = analize_message(event, all_tasks)
                             analize_request(event, seminar, task, all_tasks)
     except:
-        print("Error occured")
+        print("Error occured.")
         main(all_tasks, 0)
 
 if __name__ == "__main__":

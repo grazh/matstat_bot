@@ -2,13 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import vk_api.longpoll
-import vk
 import time
 import json
-import requests
-import wget
-import datetime
-import os
 
 def pause():
     return 0.5
@@ -90,39 +85,55 @@ def analize_message(event, all_tasks):
     return (0, 0)
 
 def remember_users(user_id):
-    try:
-        open("user_id", "r")
-        if user_id not in open("user_id", "r").read().split():
-            write_in_file(user_id.append("\n"), "user_id")
-            return 0
-        return 1
-    except:
-        write_in_file(user_id, "user_id")
+    with open('user_id', "r") as f:
+        if str(user_id) not in f.read():
+            with open('user_id', "w") as file:
+                file.write(str(user_id))
+                file.write('\n')
+                return 0
 
 def analize_request(event, seminar, task, all_tasks):
     if seminar == 0:
         return 0
     else:
-        print(event.attachments.keys())
-        if 'attach1' in event.attachments.keys():
-            print(event.attachments['attach1'])
+        print(event.attachments)
         if "attach1" in event.attachments.keys():
+            for i in range(1, int(len(str(event.attachments.keys()).split())/2) + 1):
+                if event.attachments['attach' + str(i) + "_type"] != "doc" and event.attachments['attach' + str(i) + "_type"] != "photo":
+                    vk_session.method("messages.send", {'user_id': event.user_id,
+                                                        'message': "Решением задачи может быть только фото или документ",
+                                                        'random_id': 0})
+                    return 0
+            if "photo" in all_tasks[seminar][task]['0']:
+                vk_session.method("messages.send", {'user_id': event.user_id,
+                                                    'message': "Задача " + str(task) + " из семинара " + str(seminar) + " уже решена",
+                                                    'random_id': 0})
+                vk_session.method("messages.send", {'user_id': event.user_id,
+                                                    'message': "Наберите: " + str(seminar) + " " + str(task),
+                                                    'random_id': 0})
+                return 0
             r = vk_session.method("messages.getById", {"message_ids": event.message_id})
-            access_key = r['items'][0]['attachments'][0]['photo']['access_key']
-            string = "photo" + str(event.attachments["attach1"]) + "_" + str(access_key)
-            all_tasks[seminar][task] = string
+            access_key = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+            all_tasks[seminar][task] = {}
+            for i in range(0, int(len(str(event.attachments.keys()).split())/2)):
+                access_key[i] = r['items'][0]['attachments'][i]['photo']['access_key']
+                string = "photo" + str(event.attachments["attach" + str(i+1)]) + "_" + str(access_key[i])
+                all_tasks[seminar][task][i] = string
             write_in_file(all_tasks, "all_tasks.json")
             mark_as_read(event)
             vk_session.method("messages.send", {'user_id': event.user_id,
                                                 'message': "Спасибо, что добавили решение задачи " + str(task) + " из семинара " + str(seminar) + "!",
                                                 'random_id': 0})
         else:
-            if task in all_tasks[seminar].keys() and "photo" in all_tasks[seminar][task]:
+            if task in all_tasks[seminar].keys() and "photo" in all_tasks[seminar][task]['0']:
                 mark_as_read(event)
+                attach = str(all_tasks[seminar][task]['0'])
+                for i in range(1, all_tasks[seminar][task].keys().__len__()):
+                    attach += "," + str(all_tasks[seminar][task][str(i)])
                 vk_session.method("messages.send", {'user_id': event.user_id,
                                                     'message': "Решение задачи " + task + " из семинара " + seminar + ":",
                                                     'random_id': 0,
-                                                    'attachment': [all_tasks[seminar][task]]})
+                                                    'attachment': attach})
             else:
                 mark_as_read(event)
                 vk_session.method("messages.send", {'user_id': event.user_id,
@@ -150,8 +161,11 @@ def print_all_tasks(all_tasks, event):
     for seminar in all_tasks.keys():
         if seminar != "length":
             string += str(seminar) + ": "
-            for task in all_tasks[seminar].keys():
-                string += str(task) + ", "
+            tasks_array = []
+            for task in (all_tasks[seminar].keys()):
+                tasks_array.append(int(task))
+            for task1 in sorted(tasks_array):
+                string += str(task1) + ", "
             string += "\n"
     vk_session.method("messages.send", {"user_id": event.user_id, "message": string, "random_id": 0})
 

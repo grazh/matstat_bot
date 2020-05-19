@@ -29,6 +29,7 @@ def analize_message(event, all_tasks):
     if len(event.text.split()) == 2:
         words = event.text.split()
     else:
+        print("here")
         response(event, "Запрос не соответствует формату.\n🚀 Введите через пробел номер семинара и номер задачи из него (например, '2 5' выдаст решение пятой задачи из второго семинара)")
         return (0, 0)
     if len(event.text.split()) == 2:
@@ -43,6 +44,7 @@ def analize_message(event, all_tasks):
                 return (0, 0)
             return (words[0], words[1])
         except:
+            print("there")
             response(event, "Запрос не соответствует формату.\n🚀 Введите через пробел номер семинара и номер задачи из него (например, '2 5' выдаст решение пятой задачи из второго семинара)")
     return (0, 0)
 
@@ -156,9 +158,8 @@ def main(all_tasks):
                         c = remember_users(event.user_id)
                         if event.text == "хелп" or c == 0:
                             if c == 0:
-                                response(event, "Приветствую тебя!")
+                                response(event, "Приветствую!")
                             ask_help(event)
-                            seminar = 0
                         elif event.text == "error":
                             print(lol)
                         elif event.text == "stop23012001":

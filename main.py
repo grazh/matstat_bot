@@ -4,6 +4,7 @@
 import vk_api.longpoll
 import time
 import json
+from group_digits import group_digits
 
 token = "374eeed4f9510e8e6c2e5fbfbaab5f93c8068af27a245c2f729583018f34d608e7d740e2d349cf2d28997"
 
@@ -92,13 +93,13 @@ def analize_request(event, seminar, task, all_tasks):
                     for i in range(1, all_tasks[seminar][task].keys().__len__()):
                         attach += "," + str(all_tasks[seminar][task][str(i)])
                     for j in moderators.split('\n'):
-                        print(j)
-                        vk_session.method("messages.send", {'user_id': j,
+                        vk_session.method("messages.send", {'user_id': int(j),
                                                             'message':  seminar + " " + task,
                                                             'random_id': 0,
                                                             'attachment': attach})
                     delete_image(event.text, all_tasks)
-            response(event,  "Спасибо, что добавили решение задачи " + str(task) + " из семинара " + str(seminar) + "!")
+            user = vk_session.method("users.get", {"user_ids": event.user_id})
+            response(event,  user[0]['first_name'] + ", спасибо, что добавили решение задачи " + str(task) + " из семинара " + str(seminar) + "!")
         else:
             if task in all_tasks[seminar].keys() and '0' in all_tasks[seminar][task].keys() and "photo" in all_tasks[seminar][task]['0']:
                 attach = str(all_tasks[seminar][task]['0'])
@@ -142,9 +143,7 @@ def print_all_tasks(all_tasks, event):
             for task in (all_tasks[seminar].keys()):
                 tasks_array.append(int(task))
             tasks_array = sorted(tasks_array)
-            for i in range(0, len(tasks_array)):
-                tasks_array[i] = str(tasks_array[i])
-            string = string + ', '.join(tasks_array) + "\n"
+            string = string + ', '.join(group_digits(tasks_array)) + "\n"
     response(event, string)
 
 def main(all_tasks):
@@ -154,11 +153,11 @@ def main(all_tasks):
             for event in longpoll.listen():
                 if event.type == vk_api.longpoll.VkEventType.MESSAGE_NEW:
                     if not event.from_me:
-                        print(event.text)
                         c = remember_users(event.user_id)
                         if event.text == "хелп" or c == 0:
                             if c == 0:
-                                response(event, "Приветствую!")
+                                user = vk_session.method("users.get", {"user_ids": event.user_id})
+                                response(event, "Привет, " + user[0]['first_name'] + "!")
                             ask_help(event)
                         elif event.text == "error":
                             print(lol)
@@ -176,7 +175,6 @@ def main(all_tasks):
                                                                                 'random_id': 0})
                                         else:
                                             boarder = len(r['items'][0]['reply_message']['attachments'])
-                                            print(words)
                                             attach = []
                                             if words[1] not in all_tasks[words[0]].keys():
                                                 all_tasks[words[0]][words[1]] = {}
@@ -194,7 +192,7 @@ def main(all_tasks):
                         else:
                             seminar, task = analize_message(event, all_tasks)
                             analize_request(event, seminar, task, all_tasks)
-    except:
+    except ZeroDivisionError:
         print("Error occured.")
         main(all_tasks)
 

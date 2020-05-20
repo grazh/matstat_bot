@@ -190,7 +190,7 @@ def main(all_tasks):
                         else:
                             seminar, task = analize_message(event, all_tasks)
                             analize_request(event, seminar, task, all_tasks)
-    except ZeroDivisionError:
+    except:
         print("Error occured.")
         main(all_tasks)
 

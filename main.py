@@ -32,19 +32,18 @@ def analize_message(event, all_tasks):
     else:
         response(event, "Запрос не соответствует формату.\n🚀 Введите через пробел номер семинара и номер задачи из него (например, '2 5' выдаст решение пятой задачи из второго семинара)")
         return (0, 0)
-    if len(event.text.split()) == 2:
-        try:
-            int(words[0])
-            int(words[1])
-            if int(words[0]) > 12 or int(words[0]) < 1:
-                response(event, "Cеминара " + str(words[0]) + " пока нет")
-                return (0, 0)
-            if int(words[1]) > all_tasks['length'][words[0]] or int(words[1]) < 1:
-                response(event,  "В семинаре " + str(words[0]) + " нет задачи с номером " + str(words[1]) + "!")
-                return (0, 0)
-            return (words[0], words[1])
-        except:
-            response(event, "Запрос не соответствует формату.\n🚀 Введите через пробел номер семинара и номер задачи из него (например, '2 5' выдаст решение пятой задачи из второго семинара)")
+    try:
+        int(words[0])
+        int(words[1])
+        if int(words[0]) > 12 or int(words[0]) < 1:
+            response(event, "Cеминара " + str(words[0]) + " пока нет")
+            return (0, 0)
+        if int(words[1]) > all_tasks['length'][words[0]] or int(words[1]) < 1:
+            response(event,  "В семинаре " + str(words[0]) + " нет задачи с номером " + str(words[1]) + "!")
+            return (0, 0)
+        return (words[0], words[1])
+    except:
+        response(event, "Запрос не соответствует формату.\n🚀 Введите через пробел номер семинара и номер задачи из него (например, '2 5' выдаст решение пятой задачи из второго семинара)")
     return (0, 0)
 
 def remember_users(user_id):
@@ -122,12 +121,8 @@ def ask_help(event):
 def delete_image(text, all_tasks):
     words = text.split()
     if words[1] in all_tasks[words[0]].keys():
-        if "0" in all_tasks[words[0]][words[1]].keys():
-            del all_tasks[words[0]][words[1]]['0']
-        if "1" in all_tasks[words[0]][words[1]].keys():
-            del all_tasks[words[0]][words[1]]['1']
-        if "2" in all_tasks[words[0]][words[1]].keys():
-            del all_tasks[words[0]][words[1]]['2']
+        for i in list(all_tasks[words[0]][words[1]].keys()):
+            del all_tasks[words[0]][words[1]][i]
         del all_tasks[words[0]][words[1]]
         write_in_file(all_tasks, "all_tasks.json")
         return all_tasks
@@ -187,10 +182,12 @@ def main(all_tasks):
                             all_tasks = delete_image(event.text, all_tasks)
                         elif event.text == "Все" or event.text == "все":
                             print_all_tasks(all_tasks, event)
+                        elif event.text.lower() == "спасибо":
+                            response(event, "Пожалуйста)")
                         else:
                             seminar, task = analize_message(event, all_tasks)
                             analize_request(event, seminar, task, all_tasks)
-    except ZeroDivisionError:
+    except:
         print("Error occured.")
         main(all_tasks)
 

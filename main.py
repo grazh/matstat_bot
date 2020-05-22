@@ -6,7 +6,7 @@ import time
 import json
 from group_digits import group_digits
 
-token = "374eeed4f9510e8e6c2e5fbfbaab5f93c8068af27a245c2f729583018f34d608e7d740e2d349cf2d28997"
+token = "***"
 
 vk_session = vk_api.VkApi(token=token)
 longpoll = vk_api.longpoll.VkLongPoll(vk_session)

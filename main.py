@@ -178,7 +178,7 @@ def main(all_tasks):
                                             response(event, "Добавлено, спасибо!")
                                     else:
                                         response(event, "Введите 'хелп', чтобы увидеть подсказку.")
-                        elif "delete23012001" in event.text:
+                        elif "" in event.text:
                             all_tasks = delete_image(event.text, all_tasks)
                         elif event.text.lower() == "все":
                             print_all_tasks(all_tasks, event)

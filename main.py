@@ -154,7 +154,7 @@ def main(all_tasks):
                             ask_help(event)
                         elif event.text == "error":
                             print(lol)
-                        elif event.text == "stop23012001":
+                        elif event.text == "":
                             x = 0
                             break
                         elif "reply" in event.attachments.keys():

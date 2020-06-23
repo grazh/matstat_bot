@@ -6,7 +6,7 @@ import time
 import json
 from group_digits import group_digits
 
-token = "***ку"
+token = "***"
 
 vk_session = vk_api.VkApi(token=token)
 longpoll = vk_api.longpoll.VkLongPoll(vk_session)
@@ -18,15 +18,23 @@ def write_in_file(data, filename):
     with open(filename, 'w') as file:
         json.dump(data, file, indent=2)
 
-affirmative = ["да", "Да", "lf"]
-
-def response(event, text):
+def response(event, text): 
+    """
+    отмечает сообщение как прочитанное и отвечает с небольшой паузой для эстетичности
+    
+    """
     time.sleep(0.7)
     vk_session.method("messages.markAsRead", {"peer_id": event.user_id , "v": 5.103})
     time.sleep(0.7)
     vk_session.method("messages.send", {'user_id': event.user_id, 'message': text, 'random_id': 0})
 
 def analize_message(event, all_tasks):
+    """
+    проверяет соответствие запроса формату и сообщает, если он выходит за границы, в случае ошибки возвращает (0, 0)
+    в случае соответствия возвращает два числа - номер семинара и номер задачи
+    
+    """
+    
     if len(event.text.split()) == 2:
         words = event.text.split()
     else:
@@ -47,6 +55,13 @@ def analize_message(event, all_tasks):
     return (0, 0)
 
 def remember_users(user_id):
+    """
+    функция проверяет наличие пользователя, отправившего сообщение, в списке, если его нет - добавляет.
+    основная задача была грамотно обработать приветствие только в том случае, если пользователь пишет первый раз.
+    возвращает 0 в случае, если пользователь новый, и 1, если он уже был в списке.
+    
+    """
+    
     with open('user_id', "r") as f:
         if str(user_id) not in f.read():
             x = 1
@@ -61,6 +76,18 @@ def remember_users(user_id):
         return 1
 
 def analize_request(event, seminar, task, all_tasks):
+    """
+    по сути сердце работы бота, здесь обрабатываются сообщения после того, как они прошли через первоначальную фильтрацию на соответствие формату.
+    снчала проверка на то, что все вложения являются фотографиями, далее проверяем наличие решения этой задачи.
+    затем формируется строка обращения к фотографии.
+    далее 2 пути:
+    1. если фото добавил модератор, то создатеся ключ задачи в нужном семинаре, которому сооотвествует другой словарь с ключами, которые служат для обращения
+    к каждой фототграфии.
+    2. если фото добавил не модератор, то в цикле каждому модератору отправляется сообщение с вложениями, в то же время строка для обращения к фото удаляется.
+    когда хотя бы 1 из модераторов подтвердит добавеление, строка будет добавена в all_tasks.json - эта функция реализована ниже
+    
+    """
+    
     if seminar == 0:
         return 0
     else:
@@ -112,6 +139,11 @@ def analize_request(event, seminar, task, all_tasks):
             return 0
 
 def ask_help(event):
+    """
+    просто выводит список правил, вызывается командой "хелп"
+    
+    """
+    
     response(event, "Подсказака:\n\n" + "⚡ Чтобы получить решение задачи, введите через пробел номер семинара и номер задачи из него (например, '2 5' выведет решение пятой задачи из второго семинара)\n\n"
         + "⚡ Добавить свое решение можно прикрепив фото к сообщению с номером семинара и задачи.\n\n"
         + "❗ Команда 'все' выведет список всех добавленных задач.\n\n"
@@ -119,15 +151,26 @@ def ask_help(event):
         + "По другим вопросам пишите @saturnnm (Мне) 😉")
 
 def delete_image(text, all_tasks):
+    """
+    команда для админки, вызывается специальной командой, в данном случае "<семинар> <задача> delete23012001"
+    удаляет все ссылки на фотографии сотвествующие решению указанной задачи, а также ключ, соответствующий задаче
+    
+    """
+    
     words = text.split()
     if words[1] in all_tasks[words[0]].keys():
         for i in list(all_tasks[words[0]][words[1]].keys()):
             del all_tasks[words[0]][words[1]][i]
         del all_tasks[words[0]][words[1]]
         write_in_file(all_tasks, "all_tasks.json")
-        return all_tasks
+    return all_tasks
 
 def print_all_tasks(all_tasks, event):
+    """
+    выводит список всех решенных задач, с группировкой чисел идущих подряд, чтобы не захламлять экран
+    
+    """
+    
     string = ""
     for seminar in all_tasks.keys():
         if seminar != "length":
@@ -139,7 +182,44 @@ def print_all_tasks(all_tasks, event):
             string = string + ', '.join(group_digits(tasks_array)) + "\n"
     response(event, string)
 
+def accept_photo(event):
+    """
+    функция, которая обеспечивает удобство жизни модераторам. в случае если бот получает reply с любым текстом от модератора, то он добавляет вложения в all_tasks.json
+    если reply получен от обычного пользователя, то ему предлагают изменить запрос и его действия нигде не учитываются.
+    
+    """
+    
+    with open("moderators_ids", "r") as f:
+        if str(event.user_id) in f.read():
+            r = vk_session.method("messages.getById", {"message_ids": event.message_id})
+            words = r['items'][0]['reply_message']['text'].split()
+            if words[1] in all_tasks[words[0]]:
+                vk_session.method("messages.send", {'user_id': event.user_id,
+                                                    'message': "Спасибо, уже добавлена",
+                                                    'random_id': 0})
+            else:
+                boarder = len(r['items'][0]['reply_message']['attachments'])
+                attach = []
+                if words[1] not in all_tasks[words[0]].keys():
+                    all_tasks[words[0]][words[1]] = {}
+                    for i in range(0, boarder):
+                        attach.append("photo" + str(r['items'][0]['reply_message']['attachments'][i]['photo']['owner_id']) + "_" + str(r['items'][0]['reply_message']['attachments'][i]['photo']['id']) + "_" + str(r['items'][0]['reply_message']['attachments'][i]['photo']['access_key']))
+                        all_tasks[words[0]][words[1]][str(i)] = attach[i]
+                    write_in_file(all_tasks, "all_tasks.json")
+                    response(event, "Добавлено, спасибо!")
+         else:
+            response(event, "Введите 'хелп', чтобы увидеть подсказку.")
+    
 def main(all_tasks):
+    """
+    в main идет бесконечный цикл, в котором запущен метод longpoll.listen(), который "прослушивает" сообщения, которые приходят боту.
+    каждая стпуень проверят куда отправить запрос, и перенаправляет полученные данные в нужную функцию.
+    конструкция try ... except использована для того, чтобы
+    во-первых, обойти ограничение, установленное в методе longpoll.listen(). он запускает таймер и если никто не пишет в течение нескольких минут, то он выдает ошибку.
+    во-вторых, предотвратить поломку бота в случае, если кто-то из пользователей введет запрос, который будет нечаественно обработан ботом и приведет к ошибке
+    
+    """
+    
     x = 1
     try:
         while x == 1:
@@ -154,31 +234,12 @@ def main(all_tasks):
                             ask_help(event)
                         elif event.text == "error":
                             print(lol)
-                        elif event.text == "":
+                        elif event.text == "stop23012001":
                             x = 0
                             break
                         elif "reply" in event.attachments.keys():
-                                with open("moderators_ids", "r") as f:
-                                    if str(event.user_id) in f.read():
-                                        r = vk_session.method("messages.getById", {"message_ids": event.message_id})
-                                        words = r['items'][0]['reply_message']['text'].split()
-                                        if words[1] in all_tasks[words[0]]:
-                                            vk_session.method("messages.send", {'user_id': event.user_id,
-                                                                                'message': "Спасибо, уже добавлена",
-                                                                                'random_id': 0})
-                                        else:
-                                            boarder = len(r['items'][0]['reply_message']['attachments'])
-                                            attach = []
-                                            if words[1] not in all_tasks[words[0]].keys():
-                                                all_tasks[words[0]][words[1]] = {}
-                                            for i in range(0, boarder):
-                                                attach.append("photo" + str(r['items'][0]['reply_message']['attachments'][i]['photo']['owner_id']) + "_" + str(r['items'][0]['reply_message']['attachments'][i]['photo']['id']) + "_" + str(r['items'][0]['reply_message']['attachments'][i]['photo']['access_key']))
-                                                all_tasks[words[0]][words[1]][str(i)] = attach[i]
-                                            write_in_file(all_tasks, "all_tasks.json")
-                                            response(event, "Добавлено, спасибо!")
-                                    else:
-                                        response(event, "Введите 'хелп', чтобы увидеть подсказку.")
-                        elif "" in event.text:
+                            accept_photo(event)
+                        elif "delete23012001" in event.text:
                             all_tasks = delete_image(event.text, all_tasks)
                         elif event.text.lower() == "все":
                             print_all_tasks(all_tasks, event)
@@ -187,8 +248,9 @@ def main(all_tasks):
                         else:
                             seminar, task = analize_message(event, all_tasks)
                             analize_request(event, seminar, task, all_tasks)
-    except:
+    except Exception as e:
         print("Error occured.")
+        print(e)
         main(all_tasks)
 
 if __name__ == "__main__":

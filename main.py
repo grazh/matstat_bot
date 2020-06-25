@@ -5,10 +5,9 @@ import vk_api.longpoll
 import time
 import json
 from group_digits import group_digits
+from group_token import group_token
 
-token = "0fa1dec2c974dc9d682732098bd599e4ad1ab65c71ddbe611ab9d9565fb1c11fe0f5fc1cc29e87dae0aca"
-
-vk_session = vk_api.VkApi(token=token)
+vk_session = vk_api.VkApi(token=group_token)
 longpoll = vk_api.longpoll.VkLongPoll(vk_session)
 
 with open("all_tasks.json") as f:

@@ -22,7 +22,7 @@ vk_private_session.auth(token_only=True)
 session_api = vk_private_session.get_api()
 longpoll_private = vk_api.longpoll.VkLongPoll(vk_private_session)
 
-with open("all_tasks.json") as f:
+with open("../all_tasks.json") as f:
     all_tasks = json.load(f)
 
 def write_in_file(data, filename):
@@ -74,13 +74,13 @@ def remember_users(user_id):
     возвращает 0 в случае, если пользователь новый, и 1, если он уже был в списке.
     
     """
-    with open('user_id', "r") as f:
+    with open('../config/user_id', "r") as f:
         if str(user_id) not in f.read():
             x = 1
         else:
             x = 0
     if x == 1:
-        with open('user_id', "a+") as file:
+        with open('../config/user_id', "a+") as file:
                 file.write(str(user_id))
                 file.write('\n')
                 return 0
@@ -110,7 +110,7 @@ def analize_request(event, seminar, task, all_tasks):
             return 0
         else:
             all_tasks[seminar][task] = {}
-        with open("moderators_ids", "r") as f:
+        with open("../config/moderators_ids", "r") as f:
             moderators = f.read()
             if str(event.user_id) in moderators:
                 all_tasks = add_photo(event, all_tasks, seminar, task)
@@ -188,7 +188,7 @@ def accept_photo(event):
     если reply получен от обычного пользователя, то ему предлагают изменить запрос и его действия нигде не учитываются.
     
     """
-    with open("moderators_ids", "r") as f:
+    with open("../config/moderators_ids", "r") as f:
         if str(event.user_id) in f.read():
             r = vk_group_session.method("messages.getById", {"message_ids": event.message_id})
             words = r['items'][0]['reply_message']['text'].split()

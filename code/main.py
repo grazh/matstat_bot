@@ -9,7 +9,7 @@ from decouple import config
 from group_digits import group_digits
 from urllib.request import urlretrieve
 
-vk_group_session = vk_api.VkApi(token=config('VK_TEST_GROUP_TOKEN'))
+vk_group_session = vk_api.VkApi(token=config('VK_GROUP_TOKEN'))
 longpoll = vk_api.longpoll.VkLongPoll(vk_group_session)
 
 login = config('VK_LOGIN')

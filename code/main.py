@@ -22,6 +22,9 @@ vk_private_session.auth(token_only=True)
 session_api = vk_private_session.get_api()
 longpoll_private = vk_api.longpoll.VkLongPoll(vk_private_session)
 
+with open('../config/moderators_ids', 'r') as f:
+    mod_ids = f.read()
+
 with open("../all_tasks.json") as f:
     all_tasks = json.load(f)
 
@@ -114,7 +117,7 @@ def analize_request(event, seminar, task, all_tasks):
             moderators = f.read()
             if str(event.user_id) in moderators:
                 all_tasks = add_photo(event, all_tasks, seminar, task)
-                write_in_file(all_tasks, "all_tasks.json")
+                write_in_file(all_tasks, "../all_tasks.json")
             else:
                 attach = str(all_tasks[seminar][task]['0'])
                 for i in range(1, all_tasks[seminar][task].keys().__len__()):
@@ -163,7 +166,7 @@ def delete_image(text, all_tasks):
         for i in list(all_tasks[words[0]][words[1]].keys()):
             del all_tasks[words[0]][words[1]][i]
         del all_tasks[words[0]][words[1]]
-        write_in_file(all_tasks, "all_tasks.json")
+        write_in_file(all_tasks, "../all_tasks.json")
 
 def print_all_tasks(all_tasks, user_id):
     """
@@ -229,6 +232,7 @@ def add_photo(event, all_tasks, seminar, task):
             all_tasks[seminar][task] = {"0": attach}
             os.remove(path=os.getcwd() + '/{0}/{1}'.format(photo_folder, element))
             response(event.user_id, "Добавлено, спасибо!")
+            write_in_file(all_tasks, '../all_tasks.json')
     except Exception as er:
         print(er)
         response(event.peer_id, 'Не удалось добавить фото в альбом группы. Произошла ошибка: {}'.format(er))
@@ -249,7 +253,7 @@ def main(all_tasks):
     try:
         for event in longpoll.listen():
             if event.type == vk_api.longpoll.VkEventType.MESSAGE_NEW and not event.from_me:
-                if event.text == "stop23012001":
+                if event.text == "stop" and str(event.user_id) in mod_ids:
                     break
                 elif event.text.lower() == "хелп":
                     ask_help(event.user_id)
@@ -259,7 +263,7 @@ def main(all_tasks):
                     ask_help(event.user_id)
                 elif "reply" in event.attachments.keys():
                     accept_photo(event)
-                elif "delete23012001" in event.text:
+                elif "delete" in event.text and str(event.user_id) in mod_ids:
                     delete_image(event.text, all_tasks)
                 elif event.text.lower() == "все":
                     print_all_tasks(all_tasks, event.user_id)

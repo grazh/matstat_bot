@@ -4,6 +4,7 @@
 import os
 import time
 import json
+import requests
 import vk_api.longpoll
 from decouple import config
 from group_digits import group_digits
@@ -113,21 +114,11 @@ def analize_request(event, seminar, task, all_tasks):
             return 0
         else:
             all_tasks[seminar][task] = {}
-        with open("../config/moderators_ids", "r") as f:
-            moderators = f.read()
-            if str(event.user_id) in moderators:
-                all_tasks = add_photo(event, all_tasks, seminar, task)
-                write_in_file(all_tasks, "../all_tasks.json")
-            else:
-                attach = str(all_tasks[seminar][task]['0'])
-                for i in range(1, all_tasks[seminar][task].keys().__len__()):
-                    attach += "," + str(all_tasks[seminar][task][str(i)])
-                for j in moderators.split('\n'):
-                    vk_group_session.method("messages.send", {'user_id': int(j),
-                                                        'message':  seminar + " " + task,
-                                                        'random_id': 0,
-                                                        'attachment': attach})
-                delete_image(event.text, all_tasks)
+        if str(event.user_id) in mod_ids:
+            add_photo(event, all_tasks, seminar, task)
+        else:
+            add_photo(event, all_tasks, seminar, task, moder=False)
+
         user = vk_group_session.method("users.get", {"user_ids": event.user_id})
         response(event.user_id,  user[0]['first_name'] + ", спасибо, что добавили решение задачи " + str(task) + " из семинара " + str(seminar) + "!")
     else:
@@ -191,51 +182,63 @@ def accept_photo(event):
     если reply получен от обычного пользователя, то ему предлагают изменить запрос и его действия нигде не учитываются.
     
     """
-    with open("../config/moderators_ids", "r") as f:
-        if str(event.user_id) in f.read():
-            r = vk_group_session.method("messages.getById", {"message_ids": event.message_id})
-            words = r['items'][0]['reply_message']['text'].split()
-            if words[1] in all_tasks[words[0]]:
-                response(event.user_id, "Спасибо, уже добавлена")
-            else:
-                add_photo(event, all_tasks, words[0], words[1])
+    if str(event.user_id) in mod_ids.split('\n'):
+        r = vk_group_session.method("messages.getById", {"message_ids": event.message_id})
+        words = r['items'][0]['reply_message']['text'].split()
+        if words[1] in all_tasks[words[0]]:
+            response(event.user_id, "Спасибо, уже добавлена")
         else:
-             response(event.user_id, "Введите 'хелп', чтобы увидеть подсказку.")
+            with open('../tmp', 'r') as f:
+                all_tasks[words[0]][words[1]] = {"0": f.read()}
+            write_in_file(all_tasks, '../all_tasks.json')
+            response(event.user_id, "Добавлена")
+    else:
+         response(event.user_id, "Введите 'хелп', чтобы увидеть подсказку.")
 
 
-def add_photo(event, all_tasks, seminar, task):
+def add_photo(event, all_tasks, seminar, task, moder=True):
     try:
-        info_photos = []
-        for k, v in event.attachments.items():
-            if v == 'photo':
-                info_photos.append(vk_group_session.method("messages.getById", {"message_ids": event.message_id, 'v': 5.77}))
+        request = requests.get('https://api.vk.com/method/messages.getById',
+                               params={'message_ids': event.message_id,
+                                       'v': 5.77,
+                                       'access_token': config('VK_GROUP_TOKEN')})
         if not os.path.exists('saved'):
             os.mkdir('saved')
         photo_folder = 'saved'
-        for photo in info_photos:
-            now, max = 0, 0
-            for i in photo['items'][0]['attachments'][0]['photo']['sizes']:
-                now = i['width']
-                if now > max:
-                    max = now
-                    url = i['url']
-            if not os.path.exists(os.getcwd() + "/" + photo_folder + "/" + os.path.split(url)[1]):
-                urlretrieve(url, os.getcwd() + "/" + photo_folder + "/" + os.path.split(url)[1])
-        upload = vk_api.VkUpload(vk_private_session)
+        for photo in [request.json()['response']]:
+            for j in photo['items'][0]['attachments']:
+                now, max = 0, 0
+                for i in j['photo']['sizes']:
+                    now = i['width']
+                    if now > max:
+                        max = now
+                        url = i['url']
+                if not os.path.exists(os.getcwd() + "/" + photo_folder + "/" + os.path.split(url)[1]):
+                    urlretrieve(url, os.getcwd() + "/" + photo_folder + "/" + os.path.split(url)[1])
+        attach = []
         for element in os.listdir(path=os.getcwd() + '/' + photo_folder):
+            upload = vk_api.VkUpload(vk_private_session)
             photo = upload.photo(
                 os.getcwd() + '/{0}/{1}'.format(photo_folder, element),
                 album_id=album_id,
                 group_id=group_id
             )
-            attach = 'photo{}_{}'.format(photo[0]['owner_id'], photo[0]['id'])
-            all_tasks[seminar][task] = {"0": attach}
+            attach.append('photo{}_{}'.format(photo[0]['owner_id'], photo[0]['id']))
+            all_tasks[seminar][task] = {"0": ','.join(attach)}
             os.remove(path=os.getcwd() + '/{0}/{1}'.format(photo_folder, element))
-            response(event.user_id, "Добавлено, спасибо!")
+        if moder == True:
             write_in_file(all_tasks, '../all_tasks.json')
+        elif moder == False:
+            for mod in mod_ids.split('\n'):
+                with open('../tmp', 'w') as f:
+                    f.write(','.join(attach))
+                del all_tasks[seminar][task]
+                vk_group_session.method('messages.send', {'user_id': mod,
+                                                          'message': str(seminar) + ' ' + str(task),
+                                                          'attachment': ','.join(attach),
+                                                          'random_id': 0})
     except Exception as er:
         print(er)
-        response(event.peer_id, 'Не удалось добавить фото в альбом группы. Произошла ошибка: {}'.format(er))
     return all_tasks
 
 

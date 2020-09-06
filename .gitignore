@@ -1,8 +1,8 @@
 saved
+tmp
 .env
 .idea
 __pycache__
 code/saved
-config/vk_config.v2.json
 README.md
-tmp
+config/vk_config.v2.json
